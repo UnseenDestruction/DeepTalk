@@ -66,7 +66,6 @@ async def generate_video(request: GenerateVideoRequest):
             "--driven_audio", audio_path,
             "--source_image", CACHED_IMAGE_PATH,
             "--result_dir", "/dev/shm",
-            "--output_name", temp_uuid,
             "--preprocess", "full",
             "--enhancer", "gfpgan"
         ]
