@@ -7,6 +7,7 @@ import io
 import base64
 import os
 import logging
+import cv2
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -55,6 +56,12 @@ async def generate_video(request: GenerateVideoRequest):
             image_path = "/dev/shm/cached_image.jpg"
             with open(image_path, "wb") as image_file:
                 image_file.write(image_data)
+            
+            image = cv2.imread(image_path)
+            if image is None:
+                logging.error(f"Failed to load image at {image_path}")
+                return JSONResponse(content={"error": "Invalid image file"}, status_code=400)
+            
             CACHED_IMAGE_PATH = image_path
             logging.info("Updated cached image.")
 
