@@ -8,8 +8,6 @@ import base64
 import os
 import logging
 from pydantic import BaseModel
-from PIL import Image
-import cv2
 
 app = FastAPI()
 
@@ -60,22 +58,8 @@ async def generate_video(request: GenerateVideoRequest):
             CACHED_IMAGE_PATH = image_path
             logging.info("Updated cached image.")
 
-        if not CACHED_IMAGE_PATH or not os.path.exists(CACHED_IMAGE_PATH) or os.path.getsize(CACHED_IMAGE_PATH) == 0:
-            return JSONResponse(content={"error": "Invalid or missing source image."}, status_code=400)
-
-        # Validate image with OpenCV
-        image_cv = cv2.imread(CACHED_IMAGE_PATH)
-        if image_cv is None:
-            return JSONResponse(content={"error": "Failed to load image with OpenCV."}, status_code=400)
-
-        # Validate image with PIL
-        try:
-            img = Image.open(CACHED_IMAGE_PATH)
-            img.verify()  # Check if it's a valid image file
-        except Exception as e:
-            return JSONResponse(content={"error": f"Invalid image format: {e}"}, status_code=400)
-
-        logging.info("Image is valid and ready for processing.")
+        if not CACHED_IMAGE_PATH:
+            return JSONResponse(content={"error": "No image available. Please upload one."}, status_code=400)
 
         command = [
             "python", "inference.py",
