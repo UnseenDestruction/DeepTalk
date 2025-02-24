@@ -22,9 +22,9 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
 
-CACHED_IMAGE_PATH = None  # Global cached image
+CACHED_IMAGE_PATH = None 
 
 class GenerateVideoRequest(BaseModel):
     input: dict
@@ -61,7 +61,6 @@ async def generate_video(request: GenerateVideoRequest):
         if not CACHED_IMAGE_PATH:
             return JSONResponse(content={"error": "No image available. Please upload one."}, status_code=400)
 
-        # Run SadTalker inference
         command = [
             "python", "inference.py",
             "--driven_audio", audio_path,
@@ -74,12 +73,10 @@ async def generate_video(request: GenerateVideoRequest):
         logging.info(f"Running command: {' '.join(command)}")
         subprocess.run(command, check=True)
 
-        # Read generated video
         with open(output_video_path, "rb") as video_file:
             video_blob = io.BytesIO(video_file.read())
             video_blob.seek(0)
 
-        # Cleanup temporary files
         for file_path in [audio_path, output_video_path]:
             if os.path.exists(file_path):
                 os.remove(file_path)
