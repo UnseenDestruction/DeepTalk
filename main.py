@@ -52,18 +52,29 @@ async def generate_video(request: GenerateVideoRequest):
             audio_file.write(audio_data)
 
         if new_image_data_base64:
-            image_data = base64.b64decode(new_image_data_base64)
-            image_path = "/dev/shm/cached_image.jpg"
-            with open(image_path, "wb") as image_file:
-                image_file.write(image_data)
-            
-            image = cv2.imread(image_path)
-            if image is None:
-                logging.error(f"Failed to load image at {image_path}")
-                return JSONResponse(content={"error": "Invalid image file"}, status_code=400)
-            
-            CACHED_IMAGE_PATH = image_path
-            logging.info("Updated cached image.")
+            try:
+                image_data = base64.b64decode(new_image_data_base64)
+                
+                # Ensure image is large enough
+                if len(image_data) < 10240:
+                    logging.error("Decoded image is too small. Possible corruption.")
+                    return JSONResponse(content={"error": "Invalid image file"}, status_code=400)
+                
+                image_path = "/dev/shm/cached_image.jpg"
+                with open(image_path, "wb") as image_file:
+                    image_file.write(image_data)
+                
+                # Validate image using OpenCV
+                image = cv2.imread(image_path)
+                if image is None:
+                    logging.error(f"Failed to load image at {image_path}")
+                    return JSONResponse(content={"error": "Invalid image file"}, status_code=400)
+                
+                CACHED_IMAGE_PATH = image_path
+                logging.info("Updated cached image.")
+            except Exception as e:
+                logging.error(f"Image processing failed: {e}")
+                return JSONResponse(content={"error": f"Invalid image file: {str(e)}"}, status_code=400)
 
         if not CACHED_IMAGE_PATH:
             return JSONResponse(content={"error": "No image available. Please upload one."}, status_code=400)
