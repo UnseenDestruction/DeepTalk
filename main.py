@@ -24,9 +24,9 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
-CACHED_IMAGE_PATH = None 
+CACHED_IMAGE_PATH = None  
 
 class GenerateVideoRequest(BaseModel):
     input: dict
@@ -35,10 +35,26 @@ def wait_for_file(file_path, timeout=10):
     """Waits for a file to be fully written before serving it."""
     start_time = time.time()
     while time.time() - start_time < timeout:
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:  # Ensure non-empty file
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:  
             return True
-        time.sleep(0.5) 
+        time.sleep(0.5)  
     return False
+
+def convert_to_h264(input_path, output_path):
+    """Converts the video to H.264 format for browser compatibility."""
+    try:
+        command = [
+            "ffmpeg", "-y", "-i", input_path,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", 
+            "-c:a", "aac", "-b:a", "128k", 
+            output_path  
+        ]
+        subprocess.run(command, check=True)
+        logging.info(f"✅ Converted video to H.264: {output_path}")
+        return output_path
+    except subprocess.CalledProcessError as e:
+        logging.error(f"❌ FFmpeg conversion failed: {e}")
+        return None
 
 @app.post("/generate-video/")
 async def generate_video(request: GenerateVideoRequest):
@@ -87,7 +103,7 @@ async def generate_video(request: GenerateVideoRequest):
         video_files = sorted(glob.glob("/dev/shm/**/*.mp4", recursive=True), key=os.path.getctime, reverse=True)
 
         if video_files:
-            output_video_path = video_files[0] 
+            output_video_path = video_files[0]  
             logging.info(f"Detected video file: {output_video_path}")
         else:
             logging.error("No output video found!")
@@ -97,17 +113,23 @@ async def generate_video(request: GenerateVideoRequest):
             logging.error("Output video file was not properly generated.")
             return JSONResponse(content={"error": "Video file is invalid or missing."}, status_code=500)
 
-        file_size = os.path.getsize(output_video_path)
-        logging.info(f"Serving video file: {output_video_path} ({file_size} bytes)")
+        converted_video_path = f"/dev/shm/{temp_uuid}_h264.mp4"
+        converted_path = convert_to_h264(output_video_path, converted_video_path)
+
+        if not converted_path:
+            return JSONResponse(content={"error": "Failed to convert video to H.264"}, status_code=500)
+
+        file_size = os.path.getsize(converted_path)
+        logging.info(f"Serving video file: {converted_path} ({file_size} bytes)")
 
         response = FileResponse(
-            output_video_path,
+            converted_path,
             media_type="video/mp4",
             filename="generated_video.mp4"
         )
 
         def cleanup():
-            for file_path in [audio_path, output_video_path]:
+            for file_path in [audio_path, output_video_path, converted_path]:
                 if os.path.exists(file_path):
                     os.remove(file_path)
         
