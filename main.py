@@ -43,6 +43,8 @@ async def generate_video(request: GenerateVideoRequest):
         if not audio_data_base64:
             return JSONResponse(content={"error": "Audio is required"}, status_code=400)
 
+            
+
         audio_data = base64.b64decode(audio_data_base64)
 
         temp_uuid = str(uuid.uuid4())
