@@ -1,9 +1,8 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 import uuid
-import io
 import base64
 import os
 import logging
@@ -42,8 +41,6 @@ async def generate_video(request: GenerateVideoRequest):
 
         if not audio_data_base64:
             return JSONResponse(content={"error": "Audio is required"}, status_code=400)
-
-            
 
         audio_data = base64.b64decode(audio_data_base64)
 
@@ -89,15 +86,11 @@ async def generate_video(request: GenerateVideoRequest):
                 logging.error("No output video found!")
                 return JSONResponse(content={"error": "Video generation failed"}, status_code=500)
 
-        with open(output_video_path, "rb") as video_file:
-            video_blob = io.BytesIO(video_file.read())
-            video_blob.seek(0)
-
-        for file_path in [audio_path, output_video_path]:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-
-        return StreamingResponse(video_blob, media_type="video/mp4")
+        return FileResponse(
+            output_video_path,
+            media_type="video/mp4",
+            filename="generated_video.mp4"
+        )
 
     except subprocess.CalledProcessError as e:
         logging.error(f"SadTalker failed: {e}")
