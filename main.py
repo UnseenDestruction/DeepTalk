@@ -126,15 +126,18 @@ async def generate_video(request: GenerateVideoRequest):
             converted_path,
             media_type="video/mp4",
             filename="generated_video.mp4",
-            headers={"Content-Disposition": "inline"}
+             headers={
+                        "Content-Disposition": "inline",
+                        "Access-Control-Expose-Headers": "Content-Disposition"
+                    }
         )
 
-        def cleanup():
-            for file_path in [audio_path, output_video_path, converted_path]:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+        # def cleanup():
+        #     for file_path in [audio_path, output_video_path, converted_path]:
+        #         if os.path.exists(file_path):
+        #             os.remove(file_path)
         
-        app.add_event_handler("shutdown", cleanup)  
+        # app.add_event_handler("shutdown", cleanup)  
 
         return response
 
