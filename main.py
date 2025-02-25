@@ -71,7 +71,7 @@ async def generate_video(request: GenerateVideoRequest):
         if not CACHED_IMAGE_PATH:
             return JSONResponse(content={"error": "No image available. Please upload one."}, status_code=400)
 
-        # Run the video generation script
+        # Run the video generation script asynchronously
         command = [
             "python", "inference.py",
             "--driven_audio", audio_path,
@@ -81,7 +81,13 @@ async def generate_video(request: GenerateVideoRequest):
             "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
-        subprocess.run(command, check=True)
+
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate(timeout=300)  # Set a timeout of 5 minutes
+
+        if process.returncode != 0:
+            logging.error(f"SadTalker failed: {stderr.decode()}")
+            return JSONResponse(content={"error": f"SadTalker failed: {stderr.decode()}"}, status_code=500)
 
         # Find the generated video file (handling possible filename variations)
         generated_files = [f for f in os.listdir("/dev/shm") if f.endswith(".mp4")]
@@ -103,6 +109,9 @@ async def generate_video(request: GenerateVideoRequest):
 
         return StreamingResponse(video_blob, media_type="video/mp4")
 
+    except subprocess.TimeoutExpired:
+        logging.error("Video generation process timed out.")
+        return JSONResponse(content={"error": "Video generation timed out. Try again later."}, status_code=500)
     except subprocess.CalledProcessError as e:
         logging.error(f"SadTalker failed: {e}")
         return JSONResponse(content={"error": f"SadTalker failed: {str(e)}"}, status_code=500)
