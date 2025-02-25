@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -8,6 +8,7 @@ import base64
 import os
 import logging
 import cv2
+import aiofiles
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -26,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
 
 CACHED_IMAGE_PATH = None  
+CHUNK_SIZE = 1024 * 1024  # 1MB per chunk for streaming
 
 class GenerateVideoRequest(BaseModel):
     input: dict
@@ -85,15 +87,7 @@ async def generate_video(request: GenerateVideoRequest):
         latest_video_path = max(generated_files, key=lambda f: os.path.getctime(os.path.join("/dev/shm", f)))
         video_full_path = os.path.join("/dev/shm", latest_video_path)
 
-        with open(video_full_path, "rb") as video_file:
-            video_blob = io.BytesIO(video_file.read())
-            video_blob.seek(0)
-
-        for file_path in [audio_path, video_full_path]:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-
-        return StreamingResponse(video_blob, media_type="video/mp4")
+        return JSONResponse(content={"video_url": f"/stream/{latest_video_path}"})
 
     except subprocess.CalledProcessError as e:
         logging.error(f"SadTalker failed: {e}")
@@ -101,3 +95,51 @@ async def generate_video(request: GenerateVideoRequest):
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+async def video_streamer(file_path: str, start: int, end: int):
+    """Streams video file in chunks to reduce memory usage."""
+    async with aiofiles.open(file_path, mode="rb") as file:
+        await file.seek(start)
+        remaining = end - start
+        while remaining > 0:
+            chunk = await file.read(min(CHUNK_SIZE, remaining))
+            if not chunk:
+                break
+            yield chunk
+            remaining -= len(chunk)
+
+@app.get("/stream/{filename}")
+async def stream_video(filename: str, request: Request):
+    """Handles streaming of video files with partial content support."""
+    file_path = f"/dev/shm/{filename}"
+
+    if not os.path.exists(file_path):
+        return Response(status_code=404, content="File not found.")
+
+    file_size = os.path.getsize(file_path)
+    range_header = request.headers.get("range")
+
+    if range_header:
+        # Handle "Range" requests for seeking
+        range_value = range_header.replace("bytes=", "").strip()
+        start, end = range_value.split("-")
+        start = int(start) if start else 0
+        end = int(end) if end else file_size - 1
+        end = min(end, file_size - 1)
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(end - start + 1),
+            "Content-Type": "video/mp4",
+        }
+
+        return StreamingResponse(video_streamer(file_path, start, end + 1), headers=headers, status_code=206)
+
+    # Default: Stream full video
+    headers = {
+        "Content-Length": str(file_size),
+        "Content-Type": "video/mp4",
+    }
+    return StreamingResponse(video_streamer(file_path, 0, file_size), headers=headers)
