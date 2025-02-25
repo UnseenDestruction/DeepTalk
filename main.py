@@ -125,11 +125,7 @@ async def generate_video(request: GenerateVideoRequest):
         response = FileResponse(
             converted_path,
             media_type="video/mp4",
-            filename="generated_video.mp4",
-             headers={
-                        "Content-Disposition": "inline",
-                        "Access-Control-Expose-Headers": "Content-Disposition"
-                    }
+            filename="generated_video.mp4"
         )
 
         # def cleanup():
