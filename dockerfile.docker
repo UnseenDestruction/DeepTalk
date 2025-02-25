@@ -19,7 +19,7 @@ RUN git clone https://github.com/Winfredy/SadTalker.git
 
 WORKDIR /app/SadTalker
 
-RUN conda create -n sadtalker python=3.8 && \
+RUN conda create -n deepface python=3.8 && \
     echo "source activate sadtalker" >> ~/.bashrc
 
 SHELL ["/bin/bash", "-c"]
