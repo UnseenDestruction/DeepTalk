@@ -54,7 +54,6 @@ async def generate_video(request: GenerateVideoRequest):
 
         temp_uuid = str(uuid.uuid4())
         audio_path = f"/dev/shm/{temp_uuid}.wav"
-        output_video_path = f"/dev/shm/{temp_uuid}.mp4"
 
         with open(audio_path, "wb") as audio_file:
             audio_file.write(base64.b64decode(audio_data_base64))
@@ -80,11 +79,19 @@ async def generate_video(request: GenerateVideoRequest):
             "--driven_audio", audio_path,
             "--source_image", CACHED_IMAGE_PATH,
             "--result_dir", "/dev/shm",
-            "--preprocess", "full",
-            "--output_path", output_video_path 
+            "--preprocess", "full"
         ]
         logging.info(f"Running command: {' '.join(command)}")
         subprocess.run(command, check=True)
+
+        video_files = sorted(glob.glob("/dev/shm/**/*.mp4", recursive=True), key=os.path.getctime, reverse=True)
+
+        if video_files:
+            output_video_path = video_files[0] 
+            logging.info(f"Detected video file: {output_video_path}")
+        else:
+            logging.error("No output video found!")
+            return JSONResponse(content={"error": "Video generation failed"}, status_code=500)
 
         if not wait_for_file(output_video_path):
             logging.error("Output video file was not properly generated.")
