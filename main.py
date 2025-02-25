@@ -76,12 +76,10 @@ async def generate_video(request: GenerateVideoRequest):
             "--source_image", CACHED_IMAGE_PATH,
             "--result_dir", "/dev/shm",
             "--preprocess", "full",
-            "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
         subprocess.run(command, check=True)
 
-        # Find the correct output video file
         if not os.path.exists(output_video_path):
             video_files = sorted(glob.glob("/dev/shm/*.mp4"), key=os.path.getctime, reverse=True)
             if video_files:
