@@ -42,21 +42,18 @@ async def generate_video(request: GenerateVideoRequest):
         if not audio_data_base64:
             return JSONResponse(content={"error": "Audio is required"}, status_code=400)
 
-        audio_data = base64.b64decode(audio_data_base64)
-
         temp_uuid = str(uuid.uuid4())
         audio_path = f"/dev/shm/{temp_uuid}.wav"
         output_video_path = f"/dev/shm/{temp_uuid}.mp4"
 
         with open(audio_path, "wb") as audio_file:
-            audio_file.write(audio_data)
+            audio_file.write(base64.b64decode(audio_data_base64))
 
         if new_image_data_base64:
-            image_data = base64.b64decode(new_image_data_base64)
             image_path = "/dev/shm/cached_image.jpg"
             with open(image_path, "wb") as image_file:
-                image_file.write(image_data)
-            
+                image_file.write(base64.b64decode(new_image_data_base64))
+
             image = cv2.imread(image_path)
             if image is None:
                 logging.error(f"Failed to load image at {image_path}")
@@ -86,11 +83,20 @@ async def generate_video(request: GenerateVideoRequest):
                 logging.error("No output video found!")
                 return JSONResponse(content={"error": "Video generation failed"}, status_code=500)
 
-        return FileResponse(
+        response = FileResponse(
             output_video_path,
             media_type="video/mp4",
             filename="generated_video.mp4"
         )
+
+        def cleanup():
+            for file_path in [audio_path, output_video_path]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+        
+        app.add_event_handler("shutdown", cleanup)  # Cleanup on shutdown
+
+        return response
 
     except subprocess.CalledProcessError as e:
         logging.error(f"SadTalker failed: {e}")
