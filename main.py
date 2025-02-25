@@ -83,7 +83,7 @@ async def generate_video(request: GenerateVideoRequest):
         logging.info(f"Running command: {' '.join(command)}")
 
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate(timeout=300)  # Set a timeout of 5 minutes
+        stdout, stderr = process.communicate()  # No timeout (infinite execution time)
 
         if process.returncode != 0:
             logging.error(f"SadTalker failed: {stderr.decode()}")
@@ -109,9 +109,6 @@ async def generate_video(request: GenerateVideoRequest):
 
         return StreamingResponse(video_blob, media_type="video/mp4")
 
-    except subprocess.TimeoutExpired:
-        logging.error("Video generation process timed out.")
-        return JSONResponse(content={"error": "Video generation timed out. Try again later."}, status_code=500)
     except subprocess.CalledProcessError as e:
         logging.error(f"SadTalker failed: {e}")
         return JSONResponse(content={"error": f"SadTalker failed: {str(e)}"}, status_code=500)
