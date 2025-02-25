@@ -8,6 +8,7 @@ import os
 import logging
 import cv2
 import glob
+import time
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -29,6 +30,15 @@ CACHED_IMAGE_PATH = None
 
 class GenerateVideoRequest(BaseModel):
     input: dict
+
+def wait_for_file(file_path, timeout=10):
+    """Waits for a file to be fully written before serving it."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:  # Ensure non-empty file
+            return True
+        time.sleep(0.5) 
+    return False
 
 @app.post("/generate-video/")
 async def generate_video(request: GenerateVideoRequest):
@@ -71,17 +81,17 @@ async def generate_video(request: GenerateVideoRequest):
             "--source_image", CACHED_IMAGE_PATH,
             "--result_dir", "/dev/shm",
             "--preprocess", "full",
+            "--output_path", output_video_path 
         ]
         logging.info(f"Running command: {' '.join(command)}")
         subprocess.run(command, check=True)
 
-        if not os.path.exists(output_video_path):
-            video_files = sorted(glob.glob("/dev/shm/*.mp4"), key=os.path.getctime, reverse=True)
-            if video_files:
-                output_video_path = video_files[0]
-            else:
-                logging.error("No output video found!")
-                return JSONResponse(content={"error": "Video generation failed"}, status_code=500)
+        if not wait_for_file(output_video_path):
+            logging.error("Output video file was not properly generated.")
+            return JSONResponse(content={"error": "Video file is invalid or missing."}, status_code=500)
+
+        file_size = os.path.getsize(output_video_path)
+        logging.info(f"Serving video file: {output_video_path} ({file_size} bytes)")
 
         response = FileResponse(
             output_video_path,
@@ -94,7 +104,7 @@ async def generate_video(request: GenerateVideoRequest):
                 if os.path.exists(file_path):
                     os.remove(file_path)
         
-        app.add_event_handler("shutdown", cleanup)  # Cleanup on shutdown
+        app.add_event_handler("shutdown", cleanup)  
 
         return response
 
