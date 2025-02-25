@@ -58,7 +58,6 @@ async def generate_video(request: GenerateVideoRequest):
             with open(image_path, "wb") as image_file:
                 image_file.write(image_data)
             
-            # Validate the image
             image = cv2.imread(image_path)
             if image is None:
                 logging.error(f"Failed to load image at {image_path}")
