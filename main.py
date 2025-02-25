@@ -106,12 +106,12 @@ async def generate_video(request: GenerateVideoRequest):
             filename="generated_video.mp4"
         )
 
-        def cleanup():
-            for file_path in [audio_path, output_video_path]:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+        # def cleanup():
+        #     for file_path in [audio_path, output_video_path]:
+        #         if os.path.exists(file_path):
+        #             os.remove(file_path)
         
-        app.add_event_handler("shutdown", cleanup)  
+        # app.add_event_handler("shutdown", cleanup)  
 
         return response
 
