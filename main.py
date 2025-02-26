@@ -97,9 +97,10 @@ async def generate_video(request: GenerateVideoRequest):
             "--driven_audio", audio_path,
             "--source_image", CACHED_IMAGE_PATH,
             "--result_dir", "/dev/shm",
-            "--preprocess", "crop",
+            "--preprocess", "full",
             "--facerender", "pirender",
             "--still",
+            "--device", "mps"
         ]
         logging.info(f"Running command: {' '.join(command)}")
         await run_subprocess(command)

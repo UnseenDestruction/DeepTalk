@@ -144,12 +144,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if torch.cuda.is_available() and not args.cpu:
-        args.device = "cuda"
-    elif platform.system() == 'Darwin' and args.facerender == 'pirender': # macos 
+    if platform.system() == 'Darwin' and torch.backends.mps.is_available():
         args.device = "mps"
     else:
-        args.device = "cpu"
+        args.device = "cpu"  
+
 
     main(args)
 
