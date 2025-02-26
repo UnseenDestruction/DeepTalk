@@ -40,6 +40,8 @@ def run_inference(audio_path, image_path, output_dir):
         "--result_dir", output_dir,
         "--preprocess", "full",
         "--still",
+        # "--enhancer", "gfpgan",
+        # "--background_enhancer", "realesrgan"
     ]
     logging.info(f"Running: {' '.join(command)}")
     subprocess.run(command, check=True)
