@@ -26,7 +26,6 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
 CACHED_IMAGE_PATH = None  
 
@@ -37,7 +36,7 @@ sad_talker_initialized = False
 def preload_sadtalker():
     global sad_talker_initialized
     if not sad_talker_initialized:
-        command = ["python", "inference.py", "--device", "mps"]
+        command = ["python", "inference.py",]
         subprocess.run(command, check=True)  # Preload models
         sad_talker_initialized = True
         logging.info("✅ SadTalker models loaded and ready!")
@@ -118,7 +117,6 @@ async def generate_video(request: GenerateVideoRequest, background_tasks: Backgr
             "--preprocess", "full",
             "--facerender", "pirender",
             "--still",
-            "--device", "mps",
             "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
