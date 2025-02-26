@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument("--verbose",action="store_true", help="saving the intermedia output or not" ) 
     parser.add_argument("--old_version",action="store_true", help="use the pth other than safetensor version" ) 
     parser.add_argument("--facerender", default='facevid2vid', choices=['pirender', 'facevid2vid'] ) 
-    parser.add_argument("--device",  default='cpu', choices=['mps', 'cpu'] ) 
+    
     
 
     # net structure and parameters
