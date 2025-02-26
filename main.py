@@ -9,6 +9,7 @@ import logging
 import cv2
 import glob
 import time
+import asyncio
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -31,21 +32,23 @@ CACHED_IMAGE_PATH = None
 class GenerateVideoRequest(BaseModel):
     input: dict
 
-def wait_for_file(file_path, timeout=10):
-    """Waits for a file to be fully written before serving it."""
+async def run_subprocess(command):
+    process = await asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    await process.communicate()
+
+def wait_for_file(file_path, timeout=5):
     start_time = time.time()
     while time.time() - start_time < timeout:
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:  
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
             return True
-        time.sleep(0.5)  
+        time.sleep(0.2)
     return False
 
 def convert_to_h264(input_path, output_path):
-    """Converts the video to H.264 format for browser compatibility."""
     try:
         command = [
             "ffmpeg", "-y", "-i", input_path,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23", 
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", 
             "-c:a", "aac", "-b:a", "128k", 
             output_path  
         ]
@@ -59,7 +62,6 @@ def convert_to_h264(input_path, output_path):
 @app.post("/generate-video/")
 async def generate_video(request: GenerateVideoRequest):
     global CACHED_IMAGE_PATH
-
     try:
         input_data = request.input
         audio_data_base64 = input_data.get("file")
@@ -78,7 +80,7 @@ async def generate_video(request: GenerateVideoRequest):
             image_path = "/dev/shm/cached_image.jpg"
             with open(image_path, "wb") as image_file:
                 image_file.write(base64.b64decode(new_image_data_base64))
-
+            
             image = cv2.imread(image_path)
             if image is None:
                 logging.error(f"Failed to load image at {image_path}")
@@ -100,10 +102,9 @@ async def generate_video(request: GenerateVideoRequest):
             "--still",
         ]
         logging.info(f"Running command: {' '.join(command)}")
-        subprocess.run(command, check=True)
+        await run_subprocess(command)
 
         video_files = sorted(glob.glob("/dev/shm/**/*.mp4", recursive=True), key=os.path.getctime, reverse=True)
-
         if video_files:
             output_video_path = video_files[0]  
             logging.info(f"Detected video file: {output_video_path}")
@@ -136,7 +137,6 @@ async def generate_video(request: GenerateVideoRequest):
                     os.remove(file_path)
         
         app.add_event_handler("shutdown", cleanup)  
-
         return response
 
     except subprocess.CalledProcessError as e:
