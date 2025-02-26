@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -6,11 +6,10 @@ import uuid
 import base64
 import os
 import logging
-import cv2
 import glob
-import time
 import asyncio
 from pydantic import BaseModel
+from pathlib import Path
 
 app = FastAPI()
 
@@ -32,7 +31,8 @@ CACHED_IMAGE_PATH = None
 class GenerateVideoRequest(BaseModel):
     input: dict
 
-def run_inference(audio_path, image_path, output_dir):
+async def run_inference(audio_path, image_path, output_dir):
+    """Runs the inference script asynchronously."""
     command = [
         "python", "inference.py",
         "--driven_audio", audio_path,
@@ -40,15 +40,16 @@ def run_inference(audio_path, image_path, output_dir):
         "--result_dir", output_dir,
         "--preprocess", "full",
         "--still",
-        # "--enhancer", "gfpgan",
-        # "--background_enhancer", "realesrgan"
     ]
     logging.info(f"Running: {' '.join(command)}")
-    subprocess.run(command, check=True)
+    
+    process = await asyncio.create_subprocess_exec(*command)
+    await process.communicate()  # Wait for process completion
 
 def get_latest_video(directory):
-    files = sorted(glob.glob(f"{directory}/*.mp4"), key=os.path.getctime, reverse=True)
-    return files[0] if files else None
+    """Gets the latest generated video file."""
+    files = sorted(Path(directory).glob("*.mp4"), key=os.path.getctime, reverse=True)
+    return str(files[0]) if files else None
 
 @app.post("/generate-video/")
 async def generate_video(request: GenerateVideoRequest):
@@ -61,9 +62,11 @@ async def generate_video(request: GenerateVideoRequest):
     output_dir = f"/dev/shm/{temp_uuid}"  
     os.makedirs(output_dir, exist_ok=True)
 
+    # Write audio file
     with open(audio_path, "wb") as audio_file:
         audio_file.write(base64.b64decode(audio_data_base64))
 
+    # Handle image caching
     if new_image_data_base64:
         CACHED_IMAGE_PATH = f"{output_dir}/cached_image.jpg"
         with open(CACHED_IMAGE_PATH, "wb") as image_file:
@@ -72,8 +75,10 @@ async def generate_video(request: GenerateVideoRequest):
     if not CACHED_IMAGE_PATH:
         return JSONResponse(content={"error": "No image available."}, status_code=400)
     
-    run_inference(audio_path, CACHED_IMAGE_PATH, output_dir)
+    # Run inference asynchronously
+    await run_inference(audio_path, CACHED_IMAGE_PATH, output_dir)
     output_video = get_latest_video(output_dir)
+
     if not output_video:
         return JSONResponse(content={"error": "Failed to generate video."}, status_code=500)
 
