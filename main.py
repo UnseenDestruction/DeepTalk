@@ -25,7 +25,6 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
 CACHED_IMAGE_PATH = None  
 
