@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -64,9 +64,15 @@ def convert_to_h264(input_path, output_path):
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ FFmpeg conversion failed: {e}")
         return None
-    
+
+def cleanup_files(files):
+    for file_path in files:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logging.info(f"Deleted: {file_path}")
+
 @app.post("/generate-video/")
-async def generate_video(request: GenerateVideoRequest):
+async def generate_video(request: GenerateVideoRequest, background_tasks: BackgroundTasks):
     global CACHED_IMAGE_PATH
     try:
         input_data = request.input
@@ -130,14 +136,8 @@ async def generate_video(request: GenerateVideoRequest):
             media_type="video/mp4",
             filename="generated_video.mp4"
         )
-
-        @response.call_on_close
-        def cleanup():
-            for file_path in [audio_path, video_output_path, converted_path]:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    logging.info(f"Deleted: {file_path}")
-
+    
+        background_tasks.add_task(cleanup_files, [audio_path, video_output_path, converted_path])
         return response
 
     except subprocess.CalledProcessError as e:
