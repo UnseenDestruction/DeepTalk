@@ -100,7 +100,8 @@ async def generate_video(request: GenerateVideoRequest):
             "--preprocess", "full",
             "--facerender", "pirender",
             "--still",
-            "--device", "mps"
+            "--device", "mps",
+            "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
         await run_subprocess(command)
