@@ -121,7 +121,7 @@ async def websocket_generate_video(websocket: WebSocket):
 
         await websocket.send_json({
             "status": "Completed",
-            "video_url": f"http://localhost:8000/videos/{temp_uuid}_h264.mp4"
+            "video_url": f"https://p8qwqlzty95gao-7888.proxy.runpod.net/videos/{temp_uuid}_h264.mp4"
         })
 
         async def cleanup():
