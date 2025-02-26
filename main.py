@@ -25,6 +25,7 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
 CACHED_IMAGE_PATH = None  
 
@@ -99,7 +100,7 @@ async def generate_video(request: GenerateVideoRequest):
             "--preprocess", "full",
             "--facerender", "pirender",
             "--still",
-            "--device", "mps",
+            # "--device", "mps",
             "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
