@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -9,7 +9,6 @@ import logging
 import cv2
 import glob
 import time
-import torch
 import asyncio
 from pydantic import BaseModel
 
@@ -26,25 +25,9 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
 CACHED_IMAGE_PATH = None  
-
-# ✅ Load models **once at startup** instead of per request
-logging.info("🔥 Preloading SadTalker models...")
-sad_talker_initialized = False
-
-def preload_sadtalker():
-    global sad_talker_initialized
-    if not sad_talker_initialized:
-        command = ["python", "inference.py",]
-        subprocess.run(command, check=True)  # Preload models
-        sad_talker_initialized = True
-        logging.info("✅ SadTalker models loaded and ready!")
-
-@app.on_event("startup")
-async def startup_event():
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, preload_sadtalker)
 
 class GenerateVideoRequest(BaseModel):
     input: dict
@@ -77,7 +60,7 @@ def convert_to_h264(input_path, output_path):
         return None
 
 @app.post("/generate-video/")
-async def generate_video(request: GenerateVideoRequest, background_tasks: BackgroundTasks):
+async def generate_video(request: GenerateVideoRequest):
     global CACHED_IMAGE_PATH
     try:
         input_data = request.input
@@ -117,6 +100,7 @@ async def generate_video(request: GenerateVideoRequest, background_tasks: Backgr
             "--preprocess", "full",
             "--facerender", "pirender",
             "--still",
+            "--device", "mps",
             "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
@@ -154,7 +138,7 @@ async def generate_video(request: GenerateVideoRequest, background_tasks: Backgr
                 if os.path.exists(file_path):
                     os.remove(file_path)
         
-        background_tasks.add_task(cleanup)
+        app.add_event_handler("shutdown", cleanup)  
         return response
 
     except subprocess.CalledProcessError as e:
