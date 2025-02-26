@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
@@ -9,6 +9,7 @@ import logging
 import cv2
 import glob
 import time
+import torch
 import asyncio
 from pydantic import BaseModel
 
@@ -28,6 +29,23 @@ logging.basicConfig(level=logging.INFO)
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
 
 CACHED_IMAGE_PATH = None  
+
+# ✅ Load models **once at startup** instead of per request
+logging.info("🔥 Preloading SadTalker models...")
+sad_talker_initialized = False
+
+def preload_sadtalker():
+    global sad_talker_initialized
+    if not sad_talker_initialized:
+        command = ["python", "inference.py", "--device", "mps"]
+        subprocess.run(command, check=True)  # Preload models
+        sad_talker_initialized = True
+        logging.info("✅ SadTalker models loaded and ready!")
+
+@app.on_event("startup")
+async def startup_event():
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, preload_sadtalker)
 
 class GenerateVideoRequest(BaseModel):
     input: dict
@@ -60,7 +78,7 @@ def convert_to_h264(input_path, output_path):
         return None
 
 @app.post("/generate-video/")
-async def generate_video(request: GenerateVideoRequest):
+async def generate_video(request: GenerateVideoRequest, background_tasks: BackgroundTasks):
     global CACHED_IMAGE_PATH
     try:
         input_data = request.input
@@ -138,7 +156,7 @@ async def generate_video(request: GenerateVideoRequest):
                 if os.path.exists(file_path):
                     os.remove(file_path)
         
-        app.add_event_handler("shutdown", cleanup)  
+        background_tasks.add_task(cleanup)
         return response
 
     except subprocess.CalledProcessError as e:
