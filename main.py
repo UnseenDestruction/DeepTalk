@@ -58,7 +58,8 @@ def convert_to_h264(input_path, output_path):
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ FFmpeg conversion failed: {e}")
         return None
-
+    
+    
 @app.post("/generate-video/")
 async def generate_video(request: GenerateVideoRequest):
     global CACHED_IMAGE_PATH
@@ -72,12 +73,13 @@ async def generate_video(request: GenerateVideoRequest):
 
         temp_uuid = str(uuid.uuid4())
         audio_path = f"/dev/shm/{temp_uuid}.wav"
+        video_output_path = f"/dev/shm/{temp_uuid}.mp4"
 
         with open(audio_path, "wb") as audio_file:
             audio_file.write(base64.b64decode(audio_data_base64))
 
         if new_image_data_base64:
-            image_path = "/dev/shm/cached_image.jpg"
+            image_path = f"/dev/shm/{temp_uuid}.jpg"
             with open(image_path, "wb") as image_file:
                 image_file.write(base64.b64decode(new_image_data_base64))
             
@@ -85,7 +87,7 @@ async def generate_video(request: GenerateVideoRequest):
             if image is None:
                 logging.error(f"Failed to load image at {image_path}")
                 return JSONResponse(content={"error": "Invalid image file"}, status_code=400)
-            
+
             CACHED_IMAGE_PATH = image_path
             logging.info("Updated cached image.")
 
@@ -105,20 +107,12 @@ async def generate_video(request: GenerateVideoRequest):
         logging.info(f"Running command: {' '.join(command)}")
         await run_subprocess(command)
 
-        video_files = sorted(glob.glob("/dev/shm/**/*.mp4", recursive=True), key=os.path.getctime, reverse=True)
-        if video_files:
-            output_video_path = video_files[0]  
-            logging.info(f"Detected video file: {output_video_path}")
-        else:
-            logging.error("No output video found!")
-            return JSONResponse(content={"error": "Video generation failed"}, status_code=500)
-
-        if not wait_for_file(output_video_path):
+        if not wait_for_file(video_output_path):
             logging.error("Output video file was not properly generated.")
             return JSONResponse(content={"error": "Video file is invalid or missing."}, status_code=500)
 
         converted_video_path = f"/dev/shm/{temp_uuid}_h264.mp4"
-        converted_path = convert_to_h264(output_video_path, converted_video_path)
+        converted_path = convert_to_h264(video_output_path, converted_video_path)
 
         if not converted_path:
             return JSONResponse(content={"error": "Failed to convert video to H.264"}, status_code=500)
@@ -132,12 +126,13 @@ async def generate_video(request: GenerateVideoRequest):
             filename="generated_video.mp4"
         )
 
+        @response.call_on_close
         def cleanup():
-            for file_path in [audio_path, output_video_path, converted_path]:
+            for file_path in [audio_path, video_output_path, converted_path]:
                 if os.path.exists(file_path):
                     os.remove(file_path)
-        
-        app.add_event_handler("shutdown", cleanup)  
+                    logging.info(f"Deleted: {file_path}")
+
         return response
 
     except subprocess.CalledProcessError as e:
