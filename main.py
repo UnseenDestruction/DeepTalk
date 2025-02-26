@@ -111,7 +111,6 @@ async def generate_video(request: GenerateVideoRequest, background_tasks: Backgr
             "--result_dir", "/dev/shm",
             "--preprocess", "full",
             "--facerender", "pirender",
-            "--device", "mps",
             "--enhancer", "gfpgan"
         ]
         logging.info(f"Running command: {' '.join(command)}")
