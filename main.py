@@ -39,9 +39,8 @@ def run_inference(audio_path, image_path, output_dir):
         "--source_image", image_path,
         "--result_dir", output_dir,
         "--preprocess", "full",
-        "--facerender", "pirender",
+        "--facerender", "facevid2vid",
         "--still",
-    
     ]
     logging.info(f"Running: {' '.join(command)}")
     subprocess.run(command, check=True)
