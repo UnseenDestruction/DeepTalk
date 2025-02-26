@@ -89,7 +89,7 @@ async def websocket_generate_video(websocket: WebSocket):
             "--source_image", "/dev/shm/cached_image.jpg",
             "--result_dir", "/dev/shm",
             "--preprocess", "full",
-            "--enhancer", "gfpgan"
+           
         ]
         logging.info(f"Running command: {' '.join(command)}")
 
