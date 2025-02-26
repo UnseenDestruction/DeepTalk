@@ -29,6 +29,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 CACHED_IMAGE_PATH = None  
 
+class GenerateVideoRequest(BaseModel):
+    input: dict
+
 def run_inference(audio_path, image_path, output_dir):
     command = [
         "python", "inference.py",
@@ -48,9 +51,9 @@ def get_latest_video(directory):
     return files[0] if files else None
 
 @app.post("/generate-video/")
-async def generate_video(request: BaseModel):
+async def generate_video(request: GenerateVideoRequest):
     global CACHED_IMAGE_PATH
-    input_data = request.dict().get("input", {})
+    input_data = request.input
     audio_data_base64 = input_data.get("file")
     new_image_data_base64 = input_data.get("image")
     temp_uuid = str(uuid.uuid4())
