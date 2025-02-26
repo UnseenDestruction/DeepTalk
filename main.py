@@ -99,7 +99,6 @@ async def generate_video(request: GenerateVideoRequest):
             "--result_dir", "/dev/shm",
             "--preprocess", "full",
             "--facerender", "pirender",
-            "--still",
             "--device", "mps",
             "--enhancer", "gfpgan"
         ]
