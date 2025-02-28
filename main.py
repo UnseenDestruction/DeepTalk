@@ -33,7 +33,7 @@ class GenerateVideoRequest(BaseModel):
     input: dict
 
 def run_inference(audio_path, image_path, output_dir):
-    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1" 
+   
     command = [
         "python", "inference.py",
         "--driven_audio", audio_path,
