@@ -42,6 +42,7 @@ def run_inference(audio_path, image_path, output_dir):
         "--preprocess", "full",
         "--facerender", "pirender",
         "--still",
+        "--device", "mps",
     
     ]
     logging.info(f"Running: {' '.join(command)}")
